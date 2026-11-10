@@ -1,122 +1,14 @@
-
 <?php
-mysqli_report(MYSQLI_REPORT_OFF);
+require_once __DIR__ . "/data.php";
+require_once __DIR__ . "/functions.php";
 
-$dbHost = "localhost";
-$dbUser = "root";
-$dbPass = "";
-$dbName = "classhub";
+$q = isset($_GET["q"]) ? trim((string)$_GET["q"]) : "";
+$category = isset($_GET["category"]) ? trim((string)$_GET["category"]) : "";
+$status = isset($_GET["status"]) ? trim((string)$_GET["status"]) : "";
 
-$mysqli = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
-$dbError = null;
-if ($mysqli->connect_errno) {
-    $dbError = "Database connection failed: " . $mysqli->connect_error . ". Create the database and table by importing books.sql in phpMyAdmin.";
-} else {
-    $mysqli->set_charset("utf8mb4");
-}
-
-$q = isset($_GET["q"]) ? trim($_GET["q"]) : "";
-$category = isset($_GET["category"]) ? trim($_GET["category"]) : "";
-$status = isset($_GET["status"]) ? trim($_GET["status"]) : "";
-
-$books = [];
-$categories = [];
-$statuses = [];
-
-if (!$dbError) {
-    $catResult = $mysqli->query("SELECT DISTINCT category FROM books ORDER BY category");
-    if ($catResult) {
-        while ($row = $catResult->fetch_assoc()) {
-            $categories[] = $row["category"];
-        }
-        $catResult->free();
-    }
-
-    $statusResult = $mysqli->query("SELECT DISTINCT status FROM books ORDER BY status");
-    if ($statusResult) {
-        while ($row = $statusResult->fetch_assoc()) {
-            $statuses[] = $row["status"];
-        }
-        $statusResult->free();
-    }
-
-    $sql = "SELECT id, title, author, category, price, status, image FROM books WHERE 1=1";
-    $types = "";
-    $params = [];
-
-    if ($q !== "") {
-        $sql .= " AND (title LIKE ? OR author LIKE ? OR category LIKE ?)";
-        $like = "%" . $q . "%";
-        $types .= "sss";
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-    }
-    if ($category !== "") {
-        $sql .= " AND category = ?";
-        $types .= "s";
-        $params[] = $category;
-    }
-    if ($status !== "") {
-        $sql .= " AND status = ?";
-        $types .= "s";
-        $params[] = $status;
-    }
-
-    $sql .= " ORDER BY id ASC";
-    $stmt = $mysqli->prepare($sql);
-    if ($stmt) {
-        if (!empty($params)) {
-            $stmt->bind_param($types, ...$params);
-        }
-        if ($stmt->execute()) {
-            $result = $stmt->get_result();
-            while ($row = $result->fetch_assoc()) {
-                $books[] = $row;
-            }
-            $result->free();
-        } else {
-            $dbError = "Query failed: " . $stmt->error;
-        }
-        $stmt->close();
-    } else {
-        $dbError = "Query failed: " . $mysqli->error . ". Make sure the 'books' table exists (run books.sql).";
-    }
-}
-
-function e($value) {
-    return htmlspecialchars((string)$value, ENT_QUOTES, "UTF-8");
-}
-
-function displayBooks($books) {
-    if (empty($books)) {
-        echo "<tr><td colspan=\"7\" class=\"empty\">No books found.</td></tr>";
-        return;
-    }
-    foreach ($books as $book) {
-        $statusClass = strtolower($book["status"]) === "available" ? "available" : (strtolower($book["status"]) === "borrowed" ? "borrowed" : "");
-        $image = isset($book["image"]) ? trim((string)$book["image"]) : "";
-        echo "<tr>";
-        echo "<td>" . e($book["id"]) . "</td>";
-        echo "<td class=\"cover\">";
-        if ($image !== "") {
-            echo "<img src=\"" . e($image) . "\" alt=\"Cover\">";
-        } else {
-            echo "<span class=\"no-image\">No image</span>";
-        }
-        echo "</td>";
-        echo "<td>" . e(ucwords(strtolower($book["title"]))) . "</td>";
-        echo "<td>" . e(ucwords(strtolower($book["author"]))) . "</td>";
-        echo "<td>" . e(ucwords(strtolower($book["category"]))) . "</td>";
-        echo "<td>₱" . number_format((float)$book["price"], 2) . "</td>";
-        echo "<td class=\"" . e($statusClass) . "\">" . e($book["status"]) . "</td>";
-        echo "</tr>";
-    }
-}
-
-function countBooks($books) {
-    return count($books);
-}
+$categories = getUniqueValues($books, "category");
+$statuses = getUniqueValues($books, "status");
+$filteredBooks = filterBooks($books, $q, $category, $status);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -163,14 +55,6 @@ function countBooks($books) {
             border-radius: 8px;
             margin-bottom: 20px;
             font-weight: bold;
-        }
-
-        .error {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
         }
 
         .filters {
@@ -305,10 +189,6 @@ function countBooks($books) {
     <h1>Book Information System</h1>
     <p class="description">Book Information Management and Catalog</p>
 
-    <?php if ($dbError): ?>
-        <div class="error"><?php echo e($dbError); ?></div>
-    <?php endif; ?>
-
     <form class="filters" method="get" action="">
         <label>
             Search
@@ -319,7 +199,7 @@ function countBooks($books) {
             <select name="category">
                 <option value="">All categories</option>
                 <?php foreach ($categories as $cat): ?>
-                    <option value="<?php echo e($cat); ?>" <?php echo $category === $cat ? "selected" : ""; ?>><?php echo e(ucwords(strtolower($cat))); ?></option>
+                    <option value="<?php echo e($cat); ?>" <?php echo strcasecmp($category, $cat) === 0 ? "selected" : ""; ?>><?php echo e(formatText($cat)); ?></option>
                 <?php endforeach; ?>
             </select>
         </label>
@@ -328,7 +208,7 @@ function countBooks($books) {
             <select name="status">
                 <option value="">All statuses</option>
                 <?php foreach ($statuses as $st): ?>
-                    <option value="<?php echo e($st); ?>" <?php echo $status === $st ? "selected" : ""; ?>><?php echo e($st); ?></option>
+                    <option value="<?php echo e($st); ?>" <?php echo strcasecmp($status, $st) === 0 ? "selected" : ""; ?>><?php echo e(trim((string)$st)); ?></option>
                 <?php endforeach; ?>
             </select>
         </label>
@@ -337,7 +217,7 @@ function countBooks($books) {
     </form>
 
     <div class="summary">
-        Total Books: <?php echo countBooks($books); ?>
+        Showing <?php echo countBooks($filteredBooks); ?> of <?php echo countBooks($books); ?> books
     </div>
 
     <table>
@@ -354,16 +234,15 @@ function countBooks($books) {
         </thead>
 
         <tbody>
-            <?php displayBooks($books); ?>
+            <?php displayBooks($filteredBooks); ?>
         </tbody>
     </table>
 
     <div class="footer">
-        Book Information System | PHP &amp; MySQL
+        Book Information System | PHP Activity
     </div>
 
 </div>
 
 </body>
 </html>
-<?php if (!$dbError) { $mysqli->close(); } ?>
