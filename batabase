@@ -1,1 +1,29 @@
+-- Book Information System schema and sample data
+-- Run this in phpMyAdmin (or MySQL client) on XAMPP.
+
+CREATE DATABASE IF NOT EXISTS `classhub` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `classhub`;
+
+DROP TABLE IF EXISTS `books`;
+CREATE TABLE `books` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(255) NOT NULL,
+  `author` VARCHAR(255) NOT NULL,
+  `category` VARCHAR(100) NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `status` VARCHAR(20) NOT NULL,
+  `image` VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `books` (`title`, `author`, `category`, `price`, `status`, `image`) VALUES
+
+('mystery of the old library', 'anna clark', 'fiction', 480.00, 'Available', 'images/images.jpg'),
+('the name of the wind', 'patrick rothfuss', 'fantasy', 650.00, 'Available', 'images/TheNameoftheWind_cover.jpg'),
+('advanced mathematics', 'robert lee', 'education', 720.00, 'Available', 'images/71L9dmsWQmL._UF1000,1000_QL80_.jpg'),
+('the art of design', 'emily white', 'arts', 590.00, 'Borrowed', 'images/71u2T9iRo2L._AC_UF1000,1000_QL80_.jpg'),
+('journey through time', 'mark evans', 'history', 530.00, 'Available', 'images/172763.jpg'),
+('science and discovery', 'laura green', 'science', 610.00, 'Available', 'images/images (1).jpg'),
+('stories of the world', 'peter hall', 'literature', 470.00, 'Borrowed', 'images/images (2).jpg');
+
 
